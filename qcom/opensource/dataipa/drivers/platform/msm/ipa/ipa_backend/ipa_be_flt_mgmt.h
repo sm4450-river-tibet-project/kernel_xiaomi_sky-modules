@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+*/
+
+#ifndef _IPA_BE_FLT_MGMT_
+#define _IPA_BE_FLT_MGMT_
+
+
+#include "ipa_api.h"
+#include "ipa_be.h"
+
+#define IPV6_HEADER_SIZE 40
+#define UINT16_MAX (65535U)
+
+#define LAN2LAN_RULE_ID 1
+
+int ipa_be_v4_add_filter_rule(struct ipa_ipv4_rule_create_msg v4_msg, bool lan2lan, int intf_num, mac_addr_t mac, int is_ret);
+int ipa_be_v4_delete_filter_rule(struct ipa_ipv4_rule_destroy_msg v4_msg, int intf_idx, mac_addr_t mac, bool lan2lan);
+
+int ipa_be_v4_add_uplink_filter_rule(struct ipa_ipv4_rule_create_msg v4_msg, bool lan2lan, int pdn_iface, int client_iface);
+int ipa_be_v4_delete_uplink_filter_rule(struct ipa_ipv4_rule_destroy_msg v4_msg, int pdn_iface, int client_iface);
+
+
+int ipa_be_v6_add_filter_rule(struct ipa_ipv6_rule_create_msg v6_msg, bool lan2lan, int intf_num, mac_addr_t mac, int is_ret);
+int ipa_be_v6_delete_filter_rule(struct ipa_ipv6_rule_destroy_msg v6_msg, int intf_idx, mac_addr_t mac, bool lan2lan);
+
+int ipa_be_v6_add_uplink_filter_rule(struct ipa_ipv6_rule_create_msg v6_msg, bool lan2lan, int pdn_iface, int client_iface, bool is_xlat);
+/*
+ * is_xlat must be true only for the companion decrement issued by
+ * ipa_be_v4_delete_uplink_filter_rule() on behalf of a v4 XLAT flow (it
+ * additionally releases the shared v6 XLAT companion group); a direct ECM
+ * v6-disconnect call must pass false (it only ever touches the base v6
+ * uplink group, which is this function's always-released part).
+ */
+int ipa_be_v6_delete_uplink_filter_rule(struct ipa_ipv6_rule_destroy_msg v6_msg, int pdn_iface, int client_iface, bool is_xlat);
+
+void ipa_be_flush_uplink_rules_for_pdn(int pdn_iface, enum ipa_ip_type ip_type);
+void ipa_be_flush_idle_uplink_rules_for_pdn(int pdn_iface, enum ipa_ip_type ip_type);
+
+int ipa_be_construct_mtu_rule(enum ipa_ip_type iptype, uint16_t mtu, int intf_num, int pdn_iface, int vlan_tag);
+int ipa_be_delete_mtu_rule(int client_iface, int pdn_iface, int vlan_tag, enum ipa_ip_type ip_type);
+
+int ipa_be_subnet_notifier_init(struct workqueue_struct *v4_wq,
+	struct workqueue_struct *v6_wq);
+void ipa_be_subnet_notifier_deinit(void);
+void ipa_be_subnet_notifier_cleanup(void);
+void ipa_be_subnet_on_intf_registered(void);
+void ipa_be_subnet_on_intf_unregistering(int slave_ifindex);
+
+int ipa_be_delete_rules_by_category(int intf_num, int category, enum ipa_ip_type iptype);
+
+int add_dft_filtering_rule(int pdn_iface, enum ipa_ip_type iptype);
+int add_icmp_alg_rules(int pdn_iface, enum ipa_ip_type iptype);
+int add_catchup_all_filtering_rule_each_pdn(int pdn_iface, enum ipa_ip_type iptype);
+/*
+ * Shared return contract for the three ref-counted WAN DL delete helpers
+ * below (delete_dft_filtering_rule(), delete_icmp_alg_rules(),
+ * delete_catchup_all_filtering_rule_each_pdn()):
+ *
+ *   > 0  Number of staged WAN DL rules removed from Pdn_flt_rule_v{4,6}_list.
+ *        The DL rule table changed; the caller must re-push it to Q6 via
+ *        install_wan_filtering_rule().
+ *     0  No change. The rule is still referenced by other connections on
+ *        this PDN, or was not installed. The caller must NOT re-push.
+ *   < 0  Error, e.g. -ENOENT when no PDN filter entry exists for this
+ *        (pdn_iface, iptype), or -EINVAL when iptype is outside
+ *        [IPA_IP_v4, IPA_IP_MAX). The caller must NOT re-push.
+ */
+int delete_dft_filtering_rule(int pdn_iface, enum ipa_ip_type iptype);
+int delete_icmp_alg_rules(int pdn_iface, enum ipa_ip_type iptype);
+int delete_catchup_all_filtering_rule_each_pdn(int pdn_iface, enum ipa_ip_type iptype);
+
+int install_wan_filtering_rule(bool is_sw_routing);
+
+bool ipa_be_wan_pdn_active(void);
+
+bool ipa_be_pdn_filter_installed(int pdn_iface, enum ipa_ip_type ip_type);
+
+int ipa_be_handle_wan_up(
+	int pdn_iface,
+	int client_iface,
+	enum ipa_ip_type ip_type,
+	bool is_eth_bh_downlink,
+	const uint32_t *dst_ip);
+
+int ipa_be_handle_wan_down(
+	int pdn_iface,
+	int client_iface,
+	enum ipa_ip_type ip_type);
+
+#endif /* _IPA_BE_FLT_MGMT_ */
