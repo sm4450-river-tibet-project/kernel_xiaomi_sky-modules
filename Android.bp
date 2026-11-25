@@ -1,0 +1,12 @@
+//
+// Copyright (C) 2026 The LineageOS Project
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+
+// Declares this tree as a soong namespace so external kernel module targets can
+// reference the modules built here. The kernel tree itself lives at
+// kernel/xiaomi/sky, so that is what the namespace imports.
+soong_namespace {
+    imports: ["kernel/xiaomi/sky"],
+}
