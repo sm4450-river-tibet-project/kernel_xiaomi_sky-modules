@@ -132,13 +132,13 @@ struct xiaomi_touch *xiaomi_touch_dev_get(int minor)
 		return NULL;
 }
 
-struct class *get_xiaomi_touch_class()
+struct class *get_xiaomi_touch_class(void)
 {
 	return xiaomi_touch_dev.class;
 }
 EXPORT_SYMBOL(get_xiaomi_touch_class);
 
-struct device *get_xiaomi_touch_dev()
+struct device *get_xiaomi_touch_dev(void)
 {
 	return xiaomi_touch_dev.dev;
 }
@@ -293,7 +293,7 @@ sys_group_err:
 	pdata->touch_data = NULL;
 	}
 data_mem_err:
-	device_destroy(xiaomi_touch_dev.class, 0;
+	device_destroy(xiaomi_touch_dev.class, 0);
 device_create_err:
 	class_destroy(xiaomi_touch_dev.class);
 class_create_err:
@@ -306,7 +306,7 @@ parse_dt_err:
 static void xiaomi_touch_remove(struct platform_device *pdev)
 {
 	sysfs_remove_group(&xiaomi_touch_dev.dev->kobj, &xiaomi_touch_dev.attrs);
-	device_destroy(xiaomi_touch_dev.class, 0;
+	device_destroy(xiaomi_touch_dev.class, 0);
 	class_destroy(xiaomi_touch_dev.class);
 	xiaomi_touch_dev.class = NULL;
 	misc_deregister(&xiaomi_touch_dev.misc_dev);

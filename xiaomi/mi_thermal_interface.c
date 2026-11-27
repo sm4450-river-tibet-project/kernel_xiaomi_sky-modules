@@ -28,7 +28,7 @@ static struct drm_panel *prim_panel;
 #define BOARD__BUFFER_SIZE 128
 struct mi_thermal_device  {
 	struct device *dev;
-	struct class *class;
+	const struct class *class;
 	struct attribute_group attrs;
 };
 struct freq_table {
@@ -162,7 +162,8 @@ static int cpu_thermal_init(void)
 	}
 	return ret;
 }
-static void destory_thermal_cpu(){
+static void destory_thermal_cpu(void)
+{
 	struct cpufreq_device *priv, *tmp;
 	list_for_each_entry_safe(priv, tmp, &cpufreq_dev_list, node) {
 		freq_qos_remove_request(priv->qos_req);
@@ -472,18 +473,33 @@ static int thermal_check_panel(struct device_node *np)
 out:
 	return 0;
 }
-static void create_thermal_message_node()
+static void create_thermal_message_node(void)
 {
 	int ret = 0;
-	struct class *cls = NULL;
+	const struct class *cls = NULL;
 
 	/*
 	 * 6.12 port: the 5.10 code walked sysfs kernfs nodes and used
 	 * to_subsys_private() (drivers/base/base.h, kernel-internal and not
-	 * importable from a vendor module) just to obtain the "thermal" class
-	 * pointer. class_find_get() gives the same pointer through exported API.
+	 * importable from a vendor module) to obtain the "thermal" class
+	 * pointer. thermal_class itself is static and unexported in 6.12, and
+	 * struct thermal_zone_device is opaque outside drivers/thermal, so the
+	 * only exported route left is to register a throwaway cooling device:
+	 * thermal_cooling_device_register() sets cdev->device.class to the very
+	 * same thermal_class, which is all we need. It is unregistered right
+	 * away so no stray cooling device shows up in sysfs.
 	 */
-	cls = class_find_get("thermal");
+	if (!mi_thermal_dev.class) {
+		static const struct thermal_cooling_device_ops dummy_ops;
+		struct thermal_cooling_device *cdev;
+
+		cdev = thermal_cooling_device_register("mi_thermal_probe", NULL,
+						       &dummy_ops);
+		if (!IS_ERR_OR_NULL(cdev)) {
+			cls = cdev->device.class;
+			thermal_cooling_device_unregister(cdev);
+		}
+	}
 	if (!cls)
 		printk(KERN_ERR "%s:can not find thermal class\n", __func__);
 
